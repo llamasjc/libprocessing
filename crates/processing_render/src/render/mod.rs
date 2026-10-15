@@ -856,7 +856,10 @@ pub fn flush_draw_commands(
                         transparent: color.alpha() < 1.0,
                         background_image: None,
                         uv_transform: Affine2::IDENTITY,
-                        blend_state: Some(BlendState::REPLACE),
+                        // CppMode: an opaque background goes in the opaque pass. With a blend
+                        // state it lands in the transparent pass, sorts last (it is nearest)
+                        // and REPLACE wipes every transparent mesh drawn that frame.
+                        blend_state: if color.alpha() < 1.0 { Some(BlendState::REPLACE) } else { None },
                     };
                     let material_handle = material_key.to_material(&mut res.materials);
 
@@ -1443,7 +1446,7 @@ fn spawn_mesh(
             };
             clone_custom_material_with_blend(&mut res.custom_materials, &untyped.0, *blend_state)
         }
-        _ => key.to_material(&mut res.materials),
+        _ => key.to_material_biased(&mut res.materials, batch.draw_index as f32 * BATCH_INDEX_STEP * 2.0),
     };
 
     res.commands.spawn((

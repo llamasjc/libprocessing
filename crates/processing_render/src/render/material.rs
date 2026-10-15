@@ -120,6 +120,9 @@ impl MaterialKey {
                 uv_transform: *uv_transform,
                 alpha_mode: if blend_state.is_some() || *transparent {
                     AlphaMode::Blend
+                } else if background_image.is_some() {
+                    // CppMode: images keep their own transparency (cutout)
+                    AlphaMode::Mask(0.5)
                 } else {
                     AlphaMode::Opaque
                 },
@@ -165,8 +168,22 @@ impl MaterialKey {
         &self,
         materials: &mut ResMut<Assets<ProcessingExtendedMaterial>>,
     ) -> UntypedHandle {
+        self.to_material_biased(materials, 0.0)
+    }
+
+    /// CppMode: blended meshes are sorted by distance, and later draws sit further
+    /// back, so without a bias they stack in reverse. depth_bias is added to the
+    /// sort distance; spawn_mesh passes one that grows with the draw index.
+    pub fn to_material_biased(
+        &self,
+        materials: &mut ResMut<Assets<ProcessingExtendedMaterial>>,
+        depth_bias: f32,
+    ) -> UntypedHandle {
         let blend_state = self.blend_state();
-        let base = self.to_standard_material();
+        let mut base = self.to_standard_material();
+        if matches!(base.alpha_mode, AlphaMode::Blend) {
+            base.depth_bias = depth_bias;
+        }
         let extended = ProcessingExtendedMaterial {
             base,
             extension: ProcessingMaterial {
