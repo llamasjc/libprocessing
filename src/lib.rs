@@ -159,8 +159,15 @@ fn setup_tracing(log_level: Option<&str>) -> error::Result<()> {
         use tracing_subscriber::EnvFilter;
         use tracing_subscriber::util::SubscriberInitExt;
 
-        let filter = EnvFilter::try_new(log_level.unwrap_or("info"))
-            .unwrap_or_else(|_| EnvFilter::new("info"));
+        // Fork: no logging unless asked for, by the caller or with PROCESSING_LOG (e.g. info, wgpu=warn).
+        let level = match log_level
+            .map(str::to_string)
+            .or_else(|| std::env::var("PROCESSING_LOG").ok())
+        {
+            Some(l) if !l.is_empty() => l,
+            _ => return Ok(()),
+        };
+        let filter = EnvFilter::try_new(&level).unwrap_or_else(|_| EnvFilter::new("info"));
         let subscriber = tracing_subscriber::FmtSubscriber::builder()
             .with_env_filter(filter)
             .finish();
