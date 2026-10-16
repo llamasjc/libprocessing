@@ -1386,6 +1386,21 @@ pub fn light_create_point(
     })
 }
 
+pub fn light_set_ambient(
+    graphics_entity: Entity,
+    color: Color,
+    brightness: f32,
+) -> error::Result<()> {
+    app_mut(|app| {
+        app.world_mut()
+            .run_system_cached_with(
+                light::set_ambient,
+                (graphics_entity, color, brightness),
+            )
+            .unwrap()
+    })
+}
+
 pub fn light_create_spot(
     graphics_entity: Entity,
     color: Color,

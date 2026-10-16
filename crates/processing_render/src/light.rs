@@ -11,6 +11,20 @@ impl Plugin for LightPlugin {
     fn build(&self, _app: &mut App) {}
 }
 
+pub fn set_ambient(
+    In((entity, color, brightness)): In<(Entity, Color, f32)>,
+    mut commands: Commands,
+    graphics: Query<(), With<Graphics>>,
+) -> Result<(), ProcessingError> {
+    graphics.get(entity).map_err(|_| ProcessingError::GraphicsNotFound)?;
+    commands.entity(entity).insert(AmbientLight {
+        color,
+        brightness,
+        ..default()
+    });
+    Ok(())
+}
+
 pub fn create_directional(
     In((entity, color, illuminance)): In<(Entity, Color, f32)>,
     mut commands: Commands,

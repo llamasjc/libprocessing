@@ -1686,6 +1686,18 @@ pub mod mewnala {
     }
 
     #[pyfunction]
+    #[pyo3(pass_module, signature = (color, brightness=80.0))]
+    fn ambient_light(
+        module: &Bound<'_, PyModule>,
+        color: super::color::ColorLike,
+        brightness: f32,
+    ) -> PyResult<()> {
+        let graphics =
+            get_graphics(module)?.ok_or_else(|| PyRuntimeError::new_err("call size() first"))?;
+        graphics.ambient_light(color, brightness)
+    }
+
+    #[pyfunction]
     #[pyo3(pass_module, signature = (color, illuminance, *, position=None, look_at=None))]
     fn directional_light(
         module: &Bound<'_, PyModule>,

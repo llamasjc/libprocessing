@@ -2544,6 +2544,12 @@ impl Graphics {
         camera_reset(self.entity).map_err(|e| PyRuntimeError::new_err(format!("{e}")))
     }
 
+    pub fn ambient_light(&self, color: crate::color::ColorLike, brightness: f32) -> PyResult<()> {
+        let color = color.into_color()?;
+        light_set_ambient(self.entity, color, brightness)
+            .map_err(|e| PyRuntimeError::new_err(format!("{e}")))
+    }
+
     pub fn light_directional(
         &self,
         color: crate::color::ColorLike,
