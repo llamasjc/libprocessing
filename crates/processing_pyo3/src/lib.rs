@@ -1686,6 +1686,22 @@ pub mod mewnala {
     }
 
     #[pyfunction]
+    #[pyo3(pass_module)]
+    fn cursor(module: &Bound<'_, PyModule>) -> PyResult<()> {
+        let graphics =
+            get_graphics(module)?.ok_or_else(|| PyRuntimeError::new_err("call size() first"))?;
+        graphics.set_cursor_visible(true)
+    }
+
+    #[pyfunction]
+    #[pyo3(pass_module)]
+    fn no_cursor(module: &Bound<'_, PyModule>) -> PyResult<()> {
+        let graphics =
+            get_graphics(module)?.ok_or_else(|| PyRuntimeError::new_err("call size() first"))?;
+        graphics.set_cursor_visible(false)
+    }
+
+    #[pyfunction]
     #[pyo3(pass_module, signature = (color, brightness=80.0))]
     fn ambient_light(
         module: &Bound<'_, PyModule>,
