@@ -611,6 +611,29 @@ impl ManagedWindow {
         if self.window.get_cursor_mode() != mode {
             self.window.set_cursor_mode(mode);
         }
+
+        // Fork: apply the cursor icon too, creating a GLFW cursor only when it changes.
+        thread_local! {
+            static LAST_CURSOR_ICON: std::cell::RefCell<Option<bevy::window::SystemCursorIcon>> =
+                const { std::cell::RefCell::new(None) };
+        }
+        let icon = processing_input::input_cursor_icon(surface).ok().flatten();
+        let changed = LAST_CURSOR_ICON.with(|last| {
+            let mut last = last.borrow_mut();
+            if *last == icon { false } else { *last = icon; true }
+        });
+        if changed {
+            use bevy::window::SystemCursorIcon as I;
+            use glfw::StandardCursor as S;
+            let shape = match icon {
+                Some(I::Pointer) => S::Hand,
+                Some(I::Crosshair) => S::Crosshair,
+                Some(I::Text) => S::IBeam,
+                Some(I::Move) => S::Crosshair, // GLFW 3.3 has no four-way move cursor
+                _ => S::Arrow,
+            };
+            self.window.set_cursor(Some(glfw::Cursor::standard(shape)));
+        }
     }
 }
 

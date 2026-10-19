@@ -198,6 +198,21 @@ pub fn input_set_cursor_visible(surface: Entity, visible: bool) -> error::Result
     })
 }
 
+pub fn input_cursor_icon(surface: Entity) -> error::Result<Option<bevy::window::SystemCursorIcon>> {
+    app_mut(|app| {
+        let icon = app
+            .world()
+            .get_entity(surface)
+            .ok()
+            .and_then(|e| e.get::<bevy::window::CursorIcon>().cloned());
+        #[allow(unreachable_patterns)]
+        Ok(match icon {
+            Some(bevy::window::CursorIcon::System(i)) => Some(i),
+            _ => None,
+        })
+    })
+}
+
 pub fn input_set_cursor_icon(
     surface: Entity,
     icon: bevy::window::SystemCursorIcon,
