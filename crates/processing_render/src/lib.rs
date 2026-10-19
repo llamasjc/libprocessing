@@ -3007,3 +3007,14 @@ pub fn graphics_text_glyph_rects(
         ))
     })
 }
+
+/// Despawn a light created by light_create_*. Missing ids are ignored,
+/// so destroying a light twice is harmless.
+pub fn light_destroy(entity: Entity) -> error::Result<()> {
+    app_mut(|app| {
+        if let Ok(e) = app.world_mut().get_entity_mut(entity) {
+            e.despawn();
+        }
+        Ok(())
+    })
+}

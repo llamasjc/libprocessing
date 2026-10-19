@@ -4575,3 +4575,10 @@ fn key_code_to_u32(kc: KeyCode) -> u32 {
         _ => 0,
     }
 }
+
+/// Despawn a light returned by processing_light_create_*.
+#[unsafe(no_mangle)]
+pub extern "C" fn processing_light_destroy(light_id: u64) {
+    error::clear_error();
+    error::check(|| light_destroy(Entity::from_bits(light_id)));
+}
