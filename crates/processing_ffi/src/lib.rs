@@ -177,6 +177,20 @@ pub extern "C" fn processing_graphics_create(surface_id: u64, width: u32, height
         .unwrap_or(0)
 }
 
+/// Create an offscreen surface (no window). CppMode uses it for createGraphics().
+/// cppmode-pg-offscreen
+///
+/// SAFETY:
+/// - Init has been called.
+/// - This is called from the same thread as init.
+#[unsafe(no_mangle)]
+pub extern "C" fn processing_surface_create_offscreen(width: u32, height: u32, scale_factor: f32) -> u64 {
+    error::clear_error();
+    error::check(|| surface_create_offscreen(width, height, scale_factor, TextureFormat::Rgba16Float))
+        .map(|e| e.to_bits())
+        .unwrap_or(0)
+}
+
 /// Destroy a graphics context.
 ///
 /// SAFETY:
@@ -2786,6 +2800,17 @@ pub extern "C" fn processing_geometry_sphere(radius: f32, sectors: u32, stacks: 
     error::check(|| geometry_sphere(radius, sectors, stacks))
         .map(|e| e.to_bits())
         .unwrap_or(0)
+}
+
+/// Set the ambient light for a graphics context: an even base light on every lit surface.
+#[unsafe(no_mangle)]
+pub extern "C" fn processing_light_set_ambient(graphics_id: u64, color: Color, brightness: f32) {
+    error::clear_error();
+    let graphics_entity = Entity::from_bits(graphics_id);
+    error::check(|| {
+        let mode = graphics_get_color_mode(graphics_entity)?;
+        light_set_ambient(graphics_entity, color.resolve(&mode), brightness)
+    });
 }
 
 #[unsafe(no_mangle)]
