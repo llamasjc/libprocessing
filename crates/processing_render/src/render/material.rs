@@ -121,8 +121,8 @@ impl MaterialKey {
                 alpha_mode: if blend_state.is_some() || *transparent {
                     AlphaMode::Blend
                 } else if background_image.is_some() {
-                    // CppMode: images keep their own transparency (cutout)
-                    AlphaMode::Mask(0.5)
+                    // Fork: images blend with their own alpha (soft edges); the depth bias keeps the order
+                    AlphaMode::Blend
                 } else {
                     AlphaMode::Opaque
                 },
