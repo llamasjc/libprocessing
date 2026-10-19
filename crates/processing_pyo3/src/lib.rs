@@ -1686,10 +1686,13 @@ pub mod mewnala {
     }
 
     #[pyfunction]
-    #[pyo3(pass_module)]
-    fn cursor(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    #[pyo3(pass_module, signature = (kind=None))]
+    fn cursor(module: &Bound<'_, PyModule>, kind: Option<&str>) -> PyResult<()> {
         let graphics =
             get_graphics(module)?.ok_or_else(|| PyRuntimeError::new_err("call size() first"))?;
+        if let Some(k) = kind {
+            graphics.set_cursor_icon(k)?;
+        }
         graphics.set_cursor_visible(true)
     }
 

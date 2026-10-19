@@ -2544,6 +2544,20 @@ impl Graphics {
         camera_reset(self.entity).map_err(|e| PyRuntimeError::new_err(format!("{e}")))
     }
 
+    pub fn set_cursor_icon(&self, name: &str) -> PyResult<()> {
+        use bevy::window::SystemCursorIcon as C;
+        let icon = match name.to_ascii_lowercase().as_str() {
+            "arrow" | "default" => C::Default,
+            "cross" | "crosshair" => C::Crosshair,
+            "hand" | "pointer" => C::Pointer,
+            "move" => C::Move,
+            "text" => C::Text,
+            "wait" => C::Wait,
+            other => return Err(PyRuntimeError::new_err(format!("cursor: unknown cursor {other:?}"))),
+        };
+        input_set_cursor_icon(self.surface.entity, icon).map_err(|e| PyRuntimeError::new_err(format!("{e}")))
+    }
+
     pub fn set_cursor_visible(&self, visible: bool) -> PyResult<()> {
         input_set_cursor_visible(self.surface.entity, visible)
             .map_err(|e| PyRuntimeError::new_err(format!("{e}")))
