@@ -3,6 +3,9 @@
 // they are, instead, used by us as part of shader pre-processing in the
 // processing_render crate
 fn main() {
+    // the package artifacts are rebuilt when a shader file is added or changed
+    println!("cargo:rerun-if-changed=shaders");
+    println!("cargo:rerun-if-changed=build.rs");
     wesl::PkgBuilder::new("processing")
         .scan_root("shaders/processing")
         .expect("failed to scan processing WESL files")
