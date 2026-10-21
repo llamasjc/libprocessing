@@ -37,9 +37,17 @@ pub struct ShapeBuilder {
     pub kind: ShapeKind,
     pub contours: Vec<Contour>,
     pub in_contour: bool,
+    /// Fork: full vertices (x, y, z, u, v, has_uv) for 3D and textured shapes.
+    pub full: Vec<[f32; 6]>,
 }
 
 impl ShapeBuilder {
+    /// Fork: a vertex with z and texture coordinates; also recorded as a 2D vertex for the existing builders.
+    pub fn push_full(&mut self, x: f32, y: f32, z: f32, u: f32, v: f32, has_uv: bool) {
+        self.push_vertex(VertexType::Normal(x, y));
+        self.full.push([x, y, z, u, v, if has_uv { 1.0 } else { 0.0 }]);
+    }
+
     pub fn new(kind: ShapeKind) -> Self {
         Self {
             kind,
@@ -47,6 +55,7 @@ impl ShapeBuilder {
                 vertices: Vec::new(),
             }],
             in_contour: false,
+            full: Vec::new(),
         }
     }
 
@@ -233,6 +242,72 @@ fn flush_curve_points(points: &[(f32, f32)], result: &mut Vec<VertexType>) {
 }
 
 /// Build direct mesh geometry for non-polygon shape kinds
+/// Fork: fill for shapes whose vertices have a z or texture coordinates.
+pub fn build_full_fill(mesh: &mut Mesh, builder: &ShapeBuilder, color: Color) {
+    let v = &builder.full;
+    let n = v.len();
+    let mut tri = |a: usize, b: usize, c: usize| push_triangle_full(mesh, color, v[a], v[b], v[c]);
+    match builder.kind {
+        ShapeKind::Triangles => {
+            for i in (0..n.saturating_sub(2)).step_by(3) { tri(i, i + 1, i + 2); }
+        }
+        ShapeKind::TriangleStrip => {
+            for i in 0..n.saturating_sub(2) {
+                if i % 2 == 0 { tri(i, i + 1, i + 2) } else { tri(i + 1, i, i + 2) }
+            }
+        }
+        ShapeKind::Quads => {
+            for i in (0..n.saturating_sub(3)).step_by(4) { tri(i, i + 1, i + 2); tri(i, i + 2, i + 3); }
+        }
+        ShapeKind::QuadStrip => {
+            let mut i = 0;
+            while i + 3 < n { tri(i, i + 1, i + 3); tri(i, i + 3, i + 2); i += 2; }
+        }
+        ShapeKind::Points | ShapeKind::Lines => {}
+        _ => {
+            for i in 1..n.saturating_sub(1) { tri(0, i, i + 1); }
+        }
+    }
+}
+
+fn push_triangle_full(mesh: &mut Mesh, color: Color, a: [f32; 6], b: [f32; 6], c: [f32; 6]) {
+    let base_idx = if let Some(VertexAttributeValues::Float32x3(positions)) =
+        mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+    {
+        positions.len() as u32
+    } else {
+        0
+    };
+    if let Some(VertexAttributeValues::Float32x3(positions)) = mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION) {
+        positions.push([a[0], a[1], a[2]]);
+        positions.push([b[0], b[1], b[2]]);
+        positions.push([c[0], c[1], c[2]]);
+    }
+    let color_array = color.to_linear().to_f32_array();
+    if let Some(VertexAttributeValues::Float32x4(colors)) = mesh.attribute_mut(Mesh::ATTRIBUTE_COLOR) {
+        for _ in 0..3 { colors.push(color_array); }
+    }
+    let (ux, uy, uz) = (b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+    let (wx, wy, wz) = (c[0] - a[0], c[1] - a[1], c[2] - a[2]);
+    let (nx, ny, nz) = (uy * wz - uz * wy, uz * wx - ux * wz, ux * wy - uy * wx);
+    let len = (nx * nx + ny * ny + nz * nz).sqrt().max(1e-12);
+    let normal = [nx / len, ny / len, nz / len];
+    if let Some(VertexAttributeValues::Float32x3(normals)) = mesh.attribute_mut(Mesh::ATTRIBUTE_NORMAL) {
+        for _ in 0..3 { normals.push(normal); }
+    }
+    if let Some(VertexAttributeValues::Float32x2(uvs)) = mesh.attribute_mut(Mesh::ATTRIBUTE_UV_0) {
+        uvs.push([a[3], a[4]]);
+        uvs.push([b[3], b[4]]);
+        uvs.push([c[3], c[4]]);
+    }
+    if let Some(indices) = mesh.indices_mut() {
+        match indices {
+            Indices::U32(ix) => ix.extend_from_slice(&[base_idx, base_idx + 1, base_idx + 2]),
+            Indices::U16(ix) => ix.extend_from_slice(&[base_idx as u16, base_idx as u16 + 1, base_idx as u16 + 2]),
+        }
+    }
+}
+
 pub fn build_direct_fill(mesh: &mut Mesh, builder: &ShapeBuilder, color: Color) {
     let vertices: Vec<(f32, f32)> = builder.contours[0]
         .vertices

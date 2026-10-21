@@ -615,6 +615,11 @@ pub fn flush_draw_commands(
                 DrawCommand::BeginShape { kind } => {
                     state.shape_builder = Some(ShapeBuilder::new(kind));
                 }
+                DrawCommand::ShapeVertexFull { x, y, z, u, v, has_uv } => {
+                    if let Some(ref mut sb) = state.shape_builder {
+                        sb.push_full(x, y, z, u, v, has_uv);
+                    }
+                }
                 DrawCommand::ShapeVertex { x, y } => {
                     if let Some(ref mut sb) = state.shape_builder {
                         sb.push_vertex(VertexType::Normal(x, y));
@@ -657,6 +662,23 @@ pub fn flush_draw_commands(
                 DrawCommand::EndContour => {
                     if let Some(ref mut sb) = state.shape_builder {
                         sb.end_contour();
+                    }
+                }
+                DrawCommand::EndShape { close: _ }
+                    if state
+                        .shape_builder
+                        .as_ref()
+                        .is_some_and(|sb| sb.full.iter().any(|f| f[2] != 0.0 || f[5] != 0.0)) =>
+                {
+                    // Fork: 3D or textured shape, built from its full vertices.
+                    if let Some(sb) = state.shape_builder.take() {
+                        add_fill(
+                            &mut res,
+                            &mut batch,
+                            &state,
+                            |mesh, color| crate::render::primitive::shape::build_full_fill(mesh, &sb, color),
+                            &p_material_handles,
+                        );
                     }
                 }
                 DrawCommand::EndShape { close } => {

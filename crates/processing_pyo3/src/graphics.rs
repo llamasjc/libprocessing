@@ -1447,9 +1447,17 @@ impl Graphics {
             .map_err(|e| PyRuntimeError::new_err(format!("{e}")))
     }
 
-    pub fn vertex(&self, x: f32, y: f32) -> PyResult<()> {
-        graphics_record_command(self.entity, DrawCommand::ShapeVertex { x, y })
-            .map_err(|e| PyRuntimeError::new_err(format!("{e}")))
+    /// vertex(x, y), vertex(x, y, z), vertex(x, y, u, v) or vertex(x, y, z, u, v), as in Processing.
+    #[pyo3(signature = (*args))]
+    pub fn vertex(&self, args: Vec<f32>) -> PyResult<()> {
+        let cmd = match args.as_slice() {
+            [x, y] => DrawCommand::ShapeVertex { x: *x, y: *y },
+            [x, y, z] => DrawCommand::ShapeVertexFull { x: *x, y: *y, z: *z, u: 0.0, v: 0.0, has_uv: false },
+            [x, y, u, v] => DrawCommand::ShapeVertexFull { x: *x, y: *y, z: 0.0, u: *u, v: *v, has_uv: true },
+            [x, y, z, u, v] => DrawCommand::ShapeVertexFull { x: *x, y: *y, z: *z, u: *u, v: *v, has_uv: true },
+            _ => return Err(PyValueError::new_err("vertex takes 2 to 5 numbers")),
+        };
+        graphics_record_command(self.entity, cmd).map_err(|e| PyRuntimeError::new_err(format!("{e}")))
     }
 
     pub fn bezier_vertex(

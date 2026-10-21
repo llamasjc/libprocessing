@@ -4,7 +4,7 @@ mod ellipse;
 mod line;
 mod quad;
 mod rect;
-mod shape;
+pub(crate) mod shape;
 mod shape3d;
 pub mod text;
 mod triangle;

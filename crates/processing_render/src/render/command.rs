@@ -616,6 +616,14 @@ pub enum DrawCommand {
         x: f32,
         y: f32,
     },
+    ShapeVertexFull {
+        x: f32,
+        y: f32,
+        z: f32,
+        u: f32,
+        v: f32,
+        has_uv: bool,
+    },
     ShapeBezierVertex {
         cx1: f32,
         cy1: f32,

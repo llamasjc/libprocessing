@@ -2238,9 +2238,11 @@ pub mod mewnala {
     }
 
     #[pyfunction]
-    #[pyo3(pass_module)]
-    fn vertex(module: &Bound<'_, PyModule>, x: f32, y: f32) -> PyResult<()> {
-        graphics!(module).vertex(x, y)
+    #[pyo3(pass_module, signature = (*args))]
+    fn vertex(module: &Bound<'_, PyModule>, args: Vec<f32>) -> PyResult<()> {
+        let graphics =
+            get_graphics(module)?.ok_or_else(|| PyRuntimeError::new_err("call size() first"))?;
+        graphics.vertex(args)
     }
 
     #[pyfunction]
