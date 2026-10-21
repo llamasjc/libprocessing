@@ -61,15 +61,76 @@ struct CustomMaterialKey {
     blend_state: Option<BlendState>,
     double_sided: Option<bool>,
     depth_write: Option<bool>,
+    /// vertex inputs of the shader's own (location 8 and up): location, name, components
+    extra_attributes: Vec<(u32, String, u32)>,
+}
+
+/// The first shader location a material's own vertex attributes can use;
+/// 0 to 7 are Bevy's (position, normal, uv, uv_b, tangent, color, joints).
+pub const FIRST_CUSTOM_LOCATION: u32 = 8;
+
+/// The mesh attribute for a vertex input of a material's own, by name
+/// (`components` floats each). A mesh carries it with insert_attribute, and
+/// a material whose vertex shader reads `@location(8 or more) <name>: ...`
+/// gets it there.
+pub fn custom_attribute(name: &str, components: u32) -> bevy::mesh::MeshVertexAttribute {
+    use bevy::render::render_resource::VertexFormat;
+    // FNV-1a of the name: the same name gives the same id on both sides
+    let mut id: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in b"processing_attr:".iter().chain(name.as_bytes()) { id = (id ^ *b as u64).wrapping_mul(0x100_0000_01b3); }
+    let format = match components { 1 => VertexFormat::Float32, 2 => VertexFormat::Float32x2, 3 => VertexFormat::Float32x3, _ => VertexFormat::Float32x4 };
+    let leaked: &'static str = Box::leak(name.to_string().into_boxed_str());
+    bevy::mesh::MeshVertexAttribute::new(leaked, id, format)
+}
+
+/// The vertex entry point's inputs at FIRST_CUSTOM_LOCATION and up.
+fn extra_vertex_inputs(module: &naga::Module) -> Vec<(u32, String, u32)> {
+    let mut out = Vec::new();
+    let Some(ep) = module.entry_points.iter().find(|ep| ep.stage == naga::ShaderStage::Vertex) else { return out };
+    let components = |ty: naga::Handle<naga::Type>| match module.types[ty].inner {
+        naga::TypeInner::Vector { size, .. } => size as u32,
+        _ => 1,
+    };
+    let mut take = |binding: &Option<naga::Binding>, name: &Option<String>, ty| {
+        if let (Some(naga::Binding::Location { location, .. }), Some(name)) = (binding, name) {
+            if *location >= FIRST_CUSTOM_LOCATION { out.push((*location, name.clone(), components(ty))); }
+        }
+    };
+    for arg in &ep.function.arguments {
+        if let naga::TypeInner::Struct { members, .. } = &module.types[arg.ty].inner {
+            for m in members { take(&m.binding, &m.name, m.ty); }
+        } else {
+            take(&arg.binding, &arg.name, arg.ty);
+        }
+    }
+    out
 }
 
 fn specialize(
-    key: &dyn Any,
+    _pipeline: &dyn Any,
     descriptor: &mut RenderPipelineDescriptor,
-    _layout: &MeshVertexBufferLayoutRef,
-    _pipeline_key: ErasedMaterialPipelineKey,
+    layout: &MeshVertexBufferLayoutRef,
+    pipeline_key: ErasedMaterialPipelineKey,
 ) -> std::result::Result<(), SpecializedMeshPipelineError> {
-    if let Some(key) = key.downcast_ref::<CustomMaterialKey>() {
+    // the first argument is the material pipeline; the material's own key
+    // comes in the pipeline key
+    let key: CustomMaterialKey = pipeline_key.material_key.to_key();
+    {
+        let key = &key;
+        // the shader's own vertex inputs, from the mesh's attributes of those names
+        if !key.extra_attributes.is_empty() {
+            let wanted: Vec<bevy::mesh::VertexAttributeDescriptor> = key.extra_attributes.iter()
+                .map(|(loc, name, n)| custom_attribute(name, *n).at_shader_location(*loc))
+                .collect();
+            let extra = layout.0.get_layout(&wanted).map_err(SpecializedMeshPipelineError::MissingVertexAttribute)?;
+            for (i, b) in extra.into_iter().enumerate() {
+                if b.attributes.is_empty() { continue; }
+                match descriptor.vertex.buffers.get_mut(i) {
+                    Some(have) => have.attributes.extend(b.attributes),
+                    None => descriptor.vertex.buffers.push(b),
+                }
+            }
+        }
         crate::material::apply_pipeline_state(descriptor, key.blend_state, key.depth_write);
         if let Some(double_sided) = key.double_sided {
             descriptor.primitive.cull_mode = if double_sided { None } else { Some(Face::Back) };
@@ -88,6 +149,8 @@ pub struct CustomMaterial {
     pub alpha_mode: AlphaMode,
     pub double_sided: Option<bool>,
     pub depth_write: Option<bool>,
+    /// vertex inputs of the shader's own (see custom_attribute)
+    pub extra_attributes: Vec<(u32, String, u32)>,
 }
 
 #[derive(Component)]
@@ -289,6 +352,7 @@ pub fn create_custom(
         .iter()
         .any(|ep| ep.stage == naga::ShaderStage::Fragment);
 
+    let extra_attributes = extra_vertex_inputs(&program.module);
     let mut shader = DynamicShader::new(program.module.clone())
         .map_err(|e| ProcessingError::ShaderCompilationError(e.to_string()))?;
     shader.init();
@@ -302,6 +366,7 @@ pub fn create_custom(
         alpha_mode: AlphaMode::Opaque,
         double_sided: None,
         depth_write: None,
+        extra_attributes,
     };
     let handle = custom_materials.add(material);
     Ok(commands.spawn(UntypedMaterial(handle.untyped())).id())
@@ -661,6 +726,7 @@ impl ErasedRenderAsset for CustomMaterial {
                 blend_state,
                 double_sided: source_asset.double_sided,
                 depth_write: source_asset.depth_write,
+                extra_attributes: source_asset.extra_attributes.clone(),
             }),
             user_specialize: Some(specialize),
             // A custom blend forces the sorted transparent phase (an arbitrary
