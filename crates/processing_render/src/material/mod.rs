@@ -20,6 +20,7 @@ pub struct ProcessingMaterialPlugin;
 
 impl Plugin for ProcessingMaterialPlugin {
     fn build(&self, app: &mut App) {
+        bevy::asset::embedded_asset!(app, "processing_material.wgsl");  // cppmode-clip
         app.add_plugins(bevy::pbr::MaterialPlugin::<
             ExtendedMaterial<StandardMaterial, ProcessingMaterial>,
         >::default());
@@ -54,6 +55,7 @@ pub fn create_pbr(
         extension: ProcessingMaterial {
             blend_state: None,
             depth_write: None,
+            clip_rect: bevy::math::Vec4::ZERO,
         },
     });
     commands.spawn(UntypedMaterial(handle.untyped())).id()
@@ -387,6 +389,9 @@ pub fn destroy(
 pub struct ProcessingMaterial {
     pub blend_state: Option<BlendState>,
     pub depth_write: Option<bool>,
+    /// cppmode-clip: [x, y, w, h] in framebuffer pixels, w <= 0 means no clip
+    #[uniform(100)]
+    pub clip_rect: bevy::math::Vec4,
 }
 
 #[repr(C)]
@@ -411,7 +416,8 @@ impl MaterialExtension for ProcessingMaterial {
     }
 
     fn fragment_shader() -> ShaderRef {
-        <StandardMaterial as Material>::fragment_shader()
+        // cppmode-clip: Bevy's pbr.wgsl plus the clip() discard
+        ShaderRef::Path("embedded://processing_render/material/processing_material.wgsl".into())
     }
 
     fn specialize(

@@ -67,6 +67,7 @@ struct BatchState {
     draw_index: u32,
     render_layers: RenderLayers,
     graphics_entity: Entity,
+    clip_rect: Option<[f32; 4]>,
 }
 
 impl BatchState {
@@ -78,6 +79,7 @@ impl BatchState {
             draw_index: 0,
             render_layers,
             graphics_entity,
+            clip_rect: None,
         }
     }
 }
@@ -1141,6 +1143,9 @@ pub fn flush_draw_commands(
                 DrawCommand::BlendMode(blend_state) => {
                     state.style.blend_state = blend_state;
                 }
+                DrawCommand::Clip(rect) => {
+                    state.style.clip_rect = rect;
+                }
                 DrawCommand::Material(entity) => {
                     state.style.material_key = MaterialKey::Custom {
                         entity,
@@ -1446,7 +1451,7 @@ fn spawn_mesh(
             };
             clone_custom_material_with_blend(&mut res.custom_materials, &untyped.0, *blend_state)
         }
-        _ => key.to_material_biased(&mut res.materials, batch.draw_index as f32 * BATCH_INDEX_STEP * 2.0),
+        _ => key.to_material_clipped(&mut res.materials, batch.draw_index as f32 * BATCH_INDEX_STEP * 2.0, batch.clip_rect),
     };
 
     res.commands.spawn((
@@ -1462,7 +1467,8 @@ fn needs_batch(batch: &BatchState, state: &RenderState, material_key: &MaterialK
     let material_changed = batch.material_key.as_ref() != Some(material_key);
     let transform_changed = batch.transform != state.transform.current();
     let requires_separate_draws = state.style.blend_state.is_some();
-    material_changed || transform_changed || requires_separate_draws
+    let clip_changed = batch.clip_rect != state.style.clip_rect;
+    material_changed || transform_changed || requires_separate_draws || clip_changed
 }
 
 fn start_batch(
@@ -1474,6 +1480,7 @@ fn start_batch(
 ) {
     flush_batch(res, batch, material_handles);
     batch.material_key = Some(material_key);
+    batch.clip_rect = state.style.clip_rect;
     batch.transform = state.transform.current();
     batch.current_mesh = Some(empty_mesh());
 }
@@ -1669,6 +1676,7 @@ fn add_shape3d(
                 extension: ProcessingMaterial {
                     blend_state: state.style.blend_state,
                     depth_write: None,
+                    clip_rect: crate::render::material::clip_vec(state.style.clip_rect),
                 },
             };
             res.materials.add(extended).untyped()

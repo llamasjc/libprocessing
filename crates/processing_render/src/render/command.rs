@@ -661,6 +661,8 @@ pub enum DrawCommand {
         topology: crate::geometry::Topology,
     },
     BlendMode(Option<BlendState>),
+    /// cppmode-clip: [x, y, w, h] in framebuffer pixels, None = noClip()
+    Clip(Option<[f32; 4]>),
     Material(Entity),
     Box {
         width: f32,

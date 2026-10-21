@@ -179,6 +179,16 @@ impl MaterialKey {
         materials: &mut ResMut<Assets<ProcessingExtendedMaterial>>,
         depth_bias: f32,
     ) -> UntypedHandle {
+        self.to_material_clipped(materials, depth_bias, None)
+    }
+
+    /// cppmode-clip: same as to_material_biased, plus the clip() rect the shader discards outside of
+    pub fn to_material_clipped(
+        &self,
+        materials: &mut ResMut<Assets<ProcessingExtendedMaterial>>,
+        depth_bias: f32,
+        clip_rect: Option<[f32; 4]>,
+    ) -> UntypedHandle {
         let blend_state = self.blend_state();
         let mut base = self.to_standard_material();
         if matches!(base.alpha_mode, AlphaMode::Blend) {
@@ -189,6 +199,7 @@ impl MaterialKey {
             extension: ProcessingMaterial {
                 blend_state,
                 depth_write: None,
+                clip_rect: clip_vec(clip_rect),
             },
         };
         materials.add(extended).untyped()
@@ -210,5 +221,14 @@ pub fn add_custom_materials(mut commands: Commands, meshes: Query<(Entity, &Unty
         if let Ok(handle) = handle.try_typed::<CustomMaterial>() {
             commands.entity(entity).insert(CustomMaterial3d(handle));
         }
+    }
+}
+
+/// cppmode-clip: clip rect for the shader; zero width means "no clip"
+pub fn clip_vec(rect: Option<[f32; 4]>) -> bevy::math::Vec4 {
+    match rect {
+        Some([x, y, w, h]) if w > 0.0 && h > 0.0 => bevy::math::Vec4::new(x, y, w, h),
+        Some(_) => bevy::math::Vec4::new(0.0, 0.0, 1e-6, 1e-6), // empty clip: hide everything
+        None => bevy::math::Vec4::ZERO,
     }
 }

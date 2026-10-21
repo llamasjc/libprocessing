@@ -650,6 +650,22 @@ pub extern "C" fn processing_set_blend_mode(graphics_id: u64, mode: u8) {
     });
 }
 
+/// cppmode-clip: clip(): only draw inside [x, y, w, h] (framebuffer pixels) until no_clip.
+#[unsafe(no_mangle)]
+pub extern "C" fn processing_clip(graphics_id: u64, x: f32, y: f32, w: f32, h: f32) {
+    error::clear_error();
+    let graphics_entity = Entity::from_bits(graphics_id);
+    error::check(|| graphics_record_command(graphics_entity, DrawCommand::Clip(Some([x, y, w, h]))));
+}
+
+/// cppmode-clip: noClip()
+#[unsafe(no_mangle)]
+pub extern "C" fn processing_no_clip(graphics_id: u64) {
+    error::clear_error();
+    let graphics_entity = Entity::from_bits(graphics_id);
+    error::check(|| graphics_record_command(graphics_entity, DrawCommand::Clip(None)));
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn processing_set_custom_blend_mode(
     graphics_id: u64,
