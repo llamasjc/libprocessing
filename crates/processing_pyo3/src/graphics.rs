@@ -679,6 +679,12 @@ impl Image {
         }
     }
 
+    /// Resize the image (Processing `resize`).
+    fn resize(&self, width: u32, height: u32) -> PyResult<()> {
+        let size = bevy::render::render_resource::Extent3d { width, height, depth_or_array_layers: 1 };
+        image_resize(self.entity, size).map_err(rt_err)
+    }
+
     /// Save the image to a PNG file (Processing `save`).
     fn save(&self, filename: &str) -> PyResult<()> {
         let (w, h) =
@@ -2556,6 +2562,11 @@ impl Graphics {
             other => return Err(PyRuntimeError::new_err(format!("cursor: unknown cursor {other:?}"))),
         };
         input_set_cursor_icon(self.surface.entity, icon).map_err(|e| PyRuntimeError::new_err(format!("{e}")))
+    }
+
+    pub fn set_cursor_grab(&self, locked: bool) -> PyResult<()> {
+        let mode = if locked { bevy::window::CursorGrabMode::Locked } else { bevy::window::CursorGrabMode::None };
+        input_set_cursor_grab_mode(self.surface.entity, mode).map_err(|e| PyRuntimeError::new_err(format!("{e}")))
     }
 
     pub fn set_cursor_visible(&self, visible: bool) -> PyResult<()> {

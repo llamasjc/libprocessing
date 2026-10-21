@@ -186,6 +186,18 @@ pub fn input_cursor_visible(surface: Entity) -> error::Result<bool> {
     })
 }
 
+pub fn input_set_cursor_grab_mode(surface: Entity, mode: bevy::window::CursorGrabMode) -> error::Result<()> {
+    app_mut(|app| {
+        if let Some(mut cursor) = app
+            .world_mut()
+            .get_mut::<bevy::window::CursorOptions>(surface)
+        {
+            cursor.grab_mode = mode;
+        }
+        Ok(())
+    })
+}
+
 pub fn input_set_cursor_visible(surface: Entity, visible: bool) -> error::Result<()> {
     app_mut(|app| {
         if let Some(mut cursor) = app
