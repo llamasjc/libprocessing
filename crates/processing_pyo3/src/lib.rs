@@ -1698,6 +1698,22 @@ pub mod mewnala {
 
     #[pyfunction]
     #[pyo3(pass_module)]
+    fn capture_mouse(module: &Bound<'_, PyModule>) -> PyResult<()> {
+        let graphics =
+            get_graphics(module)?.ok_or_else(|| PyRuntimeError::new_err("call size() first"))?;
+        graphics.set_cursor_grab(true)
+    }
+
+    #[pyfunction]
+    #[pyo3(pass_module)]
+    fn release_mouse(module: &Bound<'_, PyModule>) -> PyResult<()> {
+        let graphics =
+            get_graphics(module)?.ok_or_else(|| PyRuntimeError::new_err("call size() first"))?;
+        graphics.set_cursor_grab(false)
+    }
+
+    #[pyfunction]
+    #[pyo3(pass_module)]
     fn no_cursor(module: &Bound<'_, PyModule>) -> PyResult<()> {
         let graphics =
             get_graphics(module)?.ok_or_else(|| PyRuntimeError::new_err("call size() first"))?;
