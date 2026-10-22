@@ -351,6 +351,13 @@ impl GlfwContext {
         main_open && !processing_render::ci::done()
     }
 
+    /// The main window's focus, whether the mouse is over it, and its
+    /// position on the screen: what sketches' window events are made from.
+    pub fn window_state(&self) -> Option<(bool, bool, (i32, i32))> {
+        let w = &self.windows.first()?.window;
+        Some((w.is_focused(), w.is_hovered(), w.get_pos()))
+    }
+
     /// Content scale (DPI) of the main window.
     pub fn content_scale(&self) -> f32 {
         self.windows
