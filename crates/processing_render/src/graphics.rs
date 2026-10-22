@@ -80,6 +80,65 @@ pub struct SurfaceSize(pub u32, pub u32);
 /// Custom orthographic projection for Processing's coordinate system.
 /// Origin at top-left, Y-axis down, in pixel units (aka screen space).
 #[derive(Debug, Clone, Reflect)]
+pub struct FrustumProjection {
+    pub left: f32,
+    pub right: f32,
+    pub bottom: f32,
+    pub top: f32,
+    pub near: f32,
+    pub far: f32,
+}
+
+impl CameraProjection for FrustumProjection {
+    fn get_clip_from_view(&self) -> Mat4 {
+        // Off-center perspective in Bevy's reversed, infinite-depth form (like perspective_infinite_reverse_rh).
+        let (l, r, b, t, n) = (self.left, self.right, self.bottom, self.top, self.near);
+        Mat4::from_cols(
+            Vec4::new(2.0 * n / (r - l), 0.0, 0.0, 0.0),
+            Vec4::new(0.0, 2.0 * n / (t - b), 0.0, 0.0),
+            Vec4::new((r + l) / (r - l), (t + b) / (t - b), 0.0, -1.0),
+            Vec4::new(0.0, 0.0, n, 0.0),
+        )
+    }
+
+    fn get_clip_from_view_for_sub(&self, _sub_view: &bevy::camera::SubCameraView) -> Mat4 {
+        self.get_clip_from_view()
+    }
+
+    fn update(&mut self, _width: f32, _height: f32) {}
+
+    fn far(&self) -> f32 {
+        self.far
+    }
+
+    fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8] {
+        // order: bottom-right, top-right, top-left, bottom-left for near, then far
+        let at = |d: f32| {
+            let k = d.abs() / self.near;
+            [
+                Vec3A::new(self.right * k, self.bottom * k, -d.abs()),
+                Vec3A::new(self.right * k, self.top * k, -d.abs()),
+                Vec3A::new(self.left * k, self.top * k, -d.abs()),
+                Vec3A::new(self.left * k, self.bottom * k, -d.abs()),
+            ]
+        };
+        let (a, b) = (at(z_near), at(z_far));
+        [a[0], a[1], a[2], a[3], b[0], b[1], b[2], b[3]]
+    }
+}
+
+pub fn set_frustum(
+    In((entity, left, right, bottom, top, near, far)): In<(Entity, f32, f32, f32, f32, f32, f32)>,
+    mut projections: Query<&mut Projection>,
+) -> Result<()> {
+    let mut projection = projections
+        .get_mut(entity)
+        .map_err(|_| ProcessingError::GraphicsNotFound)?;
+    *projection = Projection::custom(FrustumProjection { left, right, bottom, top, near, far });
+    Ok(())
+}
+
+#[derive(Debug, Clone, Reflect)]
 pub struct ProcessingProjection {
     pub width: f32,
     pub height: f32,

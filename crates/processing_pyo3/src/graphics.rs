@@ -2558,6 +2558,11 @@ impl Graphics {
         camera_reset(self.entity).map_err(|e| PyRuntimeError::new_err(format!("{e}")))
     }
 
+    pub fn frustum(&self, left: f32, right: f32, bottom: f32, top: f32, near: f32, far: f32) -> PyResult<()> {
+        graphics_frustum(self.entity, left, right, bottom, top, near, far)
+            .map_err(|e| PyRuntimeError::new_err(format!("{e}")))
+    }
+
     pub fn set_cursor_icon(&self, name: &str) -> PyResult<()> {
         use bevy::window::SystemCursorIcon as C;
         let icon = match name.to_ascii_lowercase().as_str() {

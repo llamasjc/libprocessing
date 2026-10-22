@@ -1401,6 +1401,25 @@ pub fn light_set_ambient(
     })
 }
 
+pub fn graphics_frustum(
+    graphics_entity: Entity,
+    left: f32,
+    right: f32,
+    bottom: f32,
+    top: f32,
+    near: f32,
+    far: f32,
+) -> error::Result<()> {
+    app_mut(|app| {
+        app.world_mut()
+            .run_system_cached_with(
+                graphics::set_frustum,
+                (graphics_entity, left, right, bottom, top, near, far),
+            )
+            .unwrap()
+    })
+}
+
 pub fn light_create_spot(
     graphics_entity: Entity,
     color: Color,
