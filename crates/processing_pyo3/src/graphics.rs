@@ -2558,6 +2558,16 @@ impl Graphics {
         camera_reset(self.entity).map_err(|e| PyRuntimeError::new_err(format!("{e}")))
     }
 
+    pub fn clip(&self, x: f32, y: f32, w: f32, h: f32) -> PyResult<()> {
+        graphics_record_command(self.entity, DrawCommand::Clip(Some([x, y, w, h])))
+            .map_err(|e| PyRuntimeError::new_err(format!("{e}")))
+    }
+
+    pub fn no_clip(&self) -> PyResult<()> {
+        graphics_record_command(self.entity, DrawCommand::Clip(None))
+            .map_err(|e| PyRuntimeError::new_err(format!("{e}")))
+    }
+
     pub fn frustum(&self, left: f32, right: f32, bottom: f32, top: f32, near: f32, far: f32) -> PyResult<()> {
         graphics_frustum(self.entity, left, right, bottom, top, near, far)
             .map_err(|e| PyRuntimeError::new_err(format!("{e}")))

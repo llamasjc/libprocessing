@@ -672,6 +672,8 @@ pub enum DrawCommand {
     /// cppmode-clip: [x, y, w, h] in framebuffer pixels, None = noClip()
     Clip(Option<[f32; 4]>),
     Material(Entity),
+    /// cppmode-resetmat: back to the default fill material (resetShader)
+    ResetMaterial,
     Box {
         width: f32,
         height: f32,

@@ -2964,6 +2964,14 @@ pub extern "C" fn processing_material_destroy(mat_id: u64) {
     error::check(|| material_destroy(Entity::from_bits(mat_id)));
 }
 
+/// cppmode-resetmat: resetShader(): draw with the normal fill material again
+#[unsafe(no_mangle)]
+pub extern "C" fn processing_reset_material(graphics_id: u64) {
+    error::clear_error();
+    let graphics_entity = Entity::from_bits(graphics_id);
+    error::check(|| graphics_record_command(graphics_entity, DrawCommand::ResetMaterial));
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn processing_material(window_id: u64, mat_id: u64) {
     error::clear_error();

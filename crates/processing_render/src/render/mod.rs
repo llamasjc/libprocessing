@@ -1168,6 +1168,9 @@ pub fn flush_draw_commands(
                 DrawCommand::Clip(rect) => {
                     state.style.clip_rect = rect;
                 }
+                DrawCommand::ResetMaterial => {
+                    state.style.material_key = style::Style::default().material_key;
+                }
                 DrawCommand::Material(entity) => {
                     state.style.material_key = MaterialKey::Custom {
                         entity,

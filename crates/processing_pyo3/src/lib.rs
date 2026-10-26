@@ -1698,6 +1698,22 @@ pub mod mewnala {
 
     #[pyfunction]
     #[pyo3(pass_module)]
+    fn clip(module: &Bound<'_, PyModule>, x: f32, y: f32, w: f32, h: f32) -> PyResult<()> {
+        let graphics =
+            get_graphics(module)?.ok_or_else(|| PyRuntimeError::new_err("call size() first"))?;
+        graphics.clip(x, y, w, h)
+    }
+
+    #[pyfunction]
+    #[pyo3(pass_module)]
+    fn no_clip(module: &Bound<'_, PyModule>) -> PyResult<()> {
+        let graphics =
+            get_graphics(module)?.ok_or_else(|| PyRuntimeError::new_err("call size() first"))?;
+        graphics.no_clip()
+    }
+
+    #[pyfunction]
+    #[pyo3(pass_module)]
     fn capture_mouse(module: &Bound<'_, PyModule>) -> PyResult<()> {
         let graphics =
             get_graphics(module)?.ok_or_else(|| PyRuntimeError::new_err("call size() first"))?;
