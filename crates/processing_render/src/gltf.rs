@@ -247,6 +247,7 @@ pub fn material(
                 blend_state: None,
                 depth_write: None,
                 clip_rect: bevy::math::Vec4::ZERO,
+                depth_test: None,
             },
         });
     let entity = world.spawn(UntypedMaterial(handle.untyped())).id();
