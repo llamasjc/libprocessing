@@ -1697,6 +1697,22 @@ pub mod mewnala {
     }
 
     #[pyfunction]
+    #[pyo3(pass_module, signature = (level=4))]
+    fn smooth(module: &Bound<'_, PyModule>, level: u32) -> PyResult<()> {
+        let graphics =
+            get_graphics(module)?.ok_or_else(|| PyRuntimeError::new_err("call size() first"))?;
+        graphics.smooth(level)
+    }
+
+    #[pyfunction]
+    #[pyo3(pass_module)]
+    fn no_smooth(module: &Bound<'_, PyModule>) -> PyResult<()> {
+        let graphics =
+            get_graphics(module)?.ok_or_else(|| PyRuntimeError::new_err("call size() first"))?;
+        graphics.smooth(0)
+    }
+
+    #[pyfunction]
     #[pyo3(pass_module)]
     fn clip(module: &Bound<'_, PyModule>, x: f32, y: f32, w: f32, h: f32) -> PyResult<()> {
         let graphics =

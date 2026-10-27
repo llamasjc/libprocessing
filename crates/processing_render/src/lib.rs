@@ -1420,6 +1420,20 @@ pub fn graphics_frustum(
     })
 }
 
+pub fn graphics_set_msaa(
+    graphics_entity: Entity,
+    samples: u32,
+) -> error::Result<()> {
+    app_mut(|app| {
+        app.world_mut()
+            .run_system_cached_with(
+                graphics::set_msaa,
+                (graphics_entity, samples),
+            )
+            .unwrap()
+    })
+}
+
 pub fn light_create_spot(
     graphics_entity: Entity,
     color: Color,

@@ -127,6 +127,17 @@ impl CameraProjection for FrustumProjection {
     }
 }
 
+pub fn set_msaa(In((entity, samples)): In<(Entity, u32)>, mut commands: Commands) -> Result<()> {
+    let msaa = match samples {
+        0 | 1 => bevy::render::view::Msaa::Off,
+        2 => bevy::render::view::Msaa::Sample2,
+        8 => bevy::render::view::Msaa::Sample8,
+        _ => bevy::render::view::Msaa::Sample4,
+    };
+    commands.entity(entity).insert(msaa);
+    Ok(())
+}
+
 pub fn set_frustum(
     In((entity, left, right, bottom, top, near, far)): In<(Entity, f32, f32, f32, f32, f32, f32)>,
     mut projections: Query<&mut Projection>,

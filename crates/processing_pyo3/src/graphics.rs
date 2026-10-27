@@ -419,6 +419,11 @@ pub struct Light {
 
 #[pymethods]
 impl Light {
+    /// Remove the light from the scene.
+    pub fn destroy(&self) -> PyResult<()> {
+        light_destroy(self.entity).map_err(|e| PyRuntimeError::new_err(format!("{e}")))
+    }
+
     /// Opaque id for this object.
     pub fn id(&self) -> u64 {
         self.entity.to_bits()
@@ -2556,6 +2561,10 @@ impl Graphics {
 
     pub fn camera_reset(&self) -> PyResult<()> {
         camera_reset(self.entity).map_err(|e| PyRuntimeError::new_err(format!("{e}")))
+    }
+
+    pub fn smooth(&self, level: u32) -> PyResult<()> {
+        graphics_set_msaa(self.entity, level).map_err(|e| PyRuntimeError::new_err(format!("{e}")))
     }
 
     pub fn clip(&self, x: f32, y: f32, w: f32, h: f32) -> PyResult<()> {
