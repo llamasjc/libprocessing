@@ -56,6 +56,7 @@ pub fn create_pbr(
             blend_state: None,
             depth_write: None,
             clip_rect: bevy::math::Vec4::ZERO,
+            depth_test: None,
         },
     });
     commands.spawn(UntypedMaterial(handle.untyped())).id()
@@ -392,6 +393,8 @@ pub struct ProcessingMaterial {
     /// cppmode-clip: [x, y, w, h] in framebuffer pixels, w <= 0 means no clip
     #[uniform(100)]
     pub clip_rect: bevy::math::Vec4,
+    /// Some(false): drawn whatever the depth (hint(DISABLE_DEPTH_TEST))
+    pub depth_test: Option<bool>,
 }
 
 #[repr(C)]
@@ -399,6 +402,7 @@ pub struct ProcessingMaterial {
 pub struct ProcessingMaterialKey {
     blend_state: Option<BlendState>,
     depth_write: Option<bool>,
+    depth_test: Option<bool>,
 }
 
 impl From<&ProcessingMaterial> for ProcessingMaterialKey {
@@ -406,6 +410,7 @@ impl From<&ProcessingMaterial> for ProcessingMaterialKey {
         ProcessingMaterialKey {
             blend_state: mat.blend_state,
             depth_write: mat.depth_write,
+            depth_test: mat.depth_test,
         }
     }
 }
@@ -431,6 +436,11 @@ impl MaterialExtension for ProcessingMaterial {
             key.bind_group_data.blend_state,
             key.bind_group_data.depth_write,
         );
+        if key.bind_group_data.depth_test == Some(false)
+            && let Some(depth_stencil) = &mut descriptor.depth_stencil
+        {
+            depth_stencil.depth_compare = Some(bevy::render::render_resource::CompareFunction::Always);
+        }
         Ok(())
     }
 }

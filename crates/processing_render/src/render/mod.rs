@@ -1171,6 +1171,11 @@ pub fn flush_draw_commands(
                 DrawCommand::ResetMaterial => {
                     state.style.material_key = style::Style::default().material_key;
                 }
+                DrawCommand::DepthTest(on) => {
+                    // what was drawn before keeps the setting it was drawn with
+                    flush_batch(&mut res, &mut batch, &p_material_handles);
+                    material::set_depth_test(on);
+                }
                 DrawCommand::Material(entity) => {
                     state.style.material_key = MaterialKey::Custom {
                         entity,
@@ -1696,11 +1701,14 @@ fn add_shape3d(
                 },
                 ..default()
             };
+            let mut base = base;
+            let depth_test = material::depth_test_override(&mut base);
             let extended = ProcessingExtendedMaterial {
                 base,
                 extension: ProcessingMaterial {
                     blend_state: state.style.blend_state,
-                    depth_write: None,
+                    depth_write: depth_test.map(|_| false),
+                    depth_test,
                     clip_rect: crate::render::material::clip_vec(state.style.clip_rect),
                 },
             };

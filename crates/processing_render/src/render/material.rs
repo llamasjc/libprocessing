@@ -194,16 +194,40 @@ impl MaterialKey {
         if matches!(base.alpha_mode, AlphaMode::Blend) {
             base.depth_bias = depth_bias;
         }
+        let depth_test = depth_test_override(&mut base);
         let extended = ProcessingExtendedMaterial {
             base,
             extension: ProcessingMaterial {
                 blend_state,
-                depth_write: None,
+                depth_write: depth_test.map(|_| false),
+                depth_test,
                 clip_rect: clip_vec(clip_rect),
             },
         };
         materials.add(extended).untyped()
     }
+}
+
+static DEPTH_TEST_OFF: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static DEPTH_TEST_OFF_SEQ: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+/// DrawCommand::DepthTest: whether materials made from now on test depth.
+pub fn set_depth_test(on: bool) {
+    use std::sync::atomic::Ordering;
+    if !on && !DEPTH_TEST_OFF.load(Ordering::Relaxed) { DEPTH_TEST_OFF_SEQ.store(0, Ordering::Relaxed); }
+    DEPTH_TEST_OFF.store(!on, Ordering::Relaxed);
+}
+
+/// With the depth test off, a material draws in the order it was made: it goes
+/// in the blended pass with a sort bias that grows with each one, so later
+/// shapes cover earlier ones whatever their depth. Some(false) then, else None.
+pub fn depth_test_override(base: &mut StandardMaterial) -> Option<bool> {
+    use std::sync::atomic::Ordering;
+    if !DEPTH_TEST_OFF.load(Ordering::Relaxed) { return None; }
+    let n = DEPTH_TEST_OFF_SEQ.fetch_add(1, Ordering::Relaxed);
+    if !matches!(base.alpha_mode, AlphaMode::Blend) { base.alpha_mode = AlphaMode::Blend; }
+    base.depth_bias = 1.0e4 + n as f32 * 1.0e3;
+    Some(false)
 }
 
 pub fn add_processing_materials(mut commands: Commands, meshes: Query<(Entity, &UntypedMaterial)>) {

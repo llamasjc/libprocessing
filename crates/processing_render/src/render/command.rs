@@ -671,6 +671,9 @@ pub enum DrawCommand {
     BlendMode(Option<BlendState>),
     /// cppmode-clip: [x, y, w, h] in framebuffer pixels, None = noClip()
     Clip(Option<[f32; 4]>),
+    /// hint(DISABLE_DEPTH_TEST) / hint(ENABLE_DEPTH_TEST): with the test off,
+    /// shapes cover what was drawn before them, whatever their depth.
+    DepthTest(bool),
     Material(Entity),
     /// cppmode-resetmat: back to the default fill material (resetShader)
     ResetMaterial,
