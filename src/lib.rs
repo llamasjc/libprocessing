@@ -35,13 +35,20 @@ fn create_app(config: Config) -> App {
     #[cfg(not(target_arch = "wasm32"))]
     let plugins = DefaultPlugins
         .build()
+        // pipelines are compiled before the frame that needs them: with this
+        // off, filters fail with PipelineNotReady and readback sees an empty
+        // canvas on the first frames
         .set(RenderPlugin {
             synchronous_pipeline_compilation: true,
             ..default()
         })
         .disable::<bevy::winit::WinitPlugin>()
         .disable::<bevy::log::LogPlugin>()
+        // stays off: with it, RenderApp can't be reached and pixel readback panics
         .disable::<bevy::render::pipelined_rendering::PipelinedRenderingPlugin>()
+        // sketches don't animate models or read game pads; both cost every update
+        .disable::<bevy::animation::AnimationPlugin>()
+        .disable::<bevy::gilrs::GilrsPlugin>()
         .set(WindowPlugin {
             primary_window: None,
             exit_condition: bevy::window::ExitCondition::DontExit,
