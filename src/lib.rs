@@ -39,7 +39,7 @@ fn create_app(config: Config) -> App {
         // off, filters fail with PipelineNotReady and readback sees an empty
         // canvas on the first frames
         .set(RenderPlugin {
-            synchronous_pipeline_compilation: true,
+            synchronous_pipeline_compilation: false,
             ..default()
         })
         .disable::<bevy::winit::WinitPlugin>()
