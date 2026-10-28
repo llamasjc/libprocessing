@@ -4606,3 +4606,47 @@ pub extern "C" fn processing_light_destroy(light_id: u64) {
     error::clear_error();
     error::check(|| light_destroy(Entity::from_bits(light_id)));
 }
+
+// cppmode-texsmooth: C entry points for texture(), textureWrap(), smooth()/noSmooth(), hint()
+
+/// Put an image on a material's named texture slot ("texture" = base color texture).
+///
+/// # Safety
+/// - `name` must be a valid null-terminated C string.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn processing_material_set_texture(
+    mat_id: u64,
+    name: *const std::ffi::c_char,
+    image_id: u64,
+) {
+    error::clear_error();
+    error::check(|| {
+        let name = unsafe { cstr_to_str(name) }?;
+        material_set(
+            Entity::from_bits(mat_id),
+            name,
+            ShaderValue::Texture(Entity::from_bits(image_id)),
+        )
+    });
+}
+
+/// filter: 0 linear, 1 nearest. wrap: 0 clamp, 1 repeat, 2 mirror.
+#[unsafe(no_mangle)]
+pub extern "C" fn processing_image_set_sampler(image_id: u64, filter: u8, wrap_x: u8, wrap_y: u8) {
+    error::clear_error();
+    error::check(|| image_set_sampler(Entity::from_bits(image_id), filter, wrap_x, wrap_y));
+}
+
+/// MSAA sample count for a graphics: 0 or 1 off, 2, 4, 8.
+#[unsafe(no_mangle)]
+pub extern "C" fn processing_graphics_set_msaa(graphics_id: u64, samples: u32) {
+    error::clear_error();
+    error::check(|| graphics_set_msaa(Entity::from_bits(graphics_id), samples));
+}
+
+/// hint(ENABLE_DEPTH_TEST / DISABLE_DEPTH_TEST) for shapes drawn after this.
+#[unsafe(no_mangle)]
+pub extern "C" fn processing_depth_test(graphics_id: u64, on: bool) {
+    error::clear_error();
+    error::check(|| graphics_record_command(Entity::from_bits(graphics_id), DrawCommand::DepthTest(on)));
+}

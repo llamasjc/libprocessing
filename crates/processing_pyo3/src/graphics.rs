@@ -1102,6 +1102,27 @@ impl Graphics {
         graphics_update(self.entity, &data).map_err(|e| PyRuntimeError::new_err(format!("{e}")))
     }
 
+    /// The frame as sRGB bytes, 4 per pixel (r, g, b, a), with no Python object per pixel.
+    pub fn load_pixels_raw(&self, py: Python<'_>) -> PyResult<Py<pyo3::types::PyBytes>> {
+        let pixels =
+            graphics_readback(self.entity).map_err(|e| PyRuntimeError::new_err(format!("{e}")))?;
+        let mut buf = Vec::with_capacity(pixels.len() * 4);
+        for c in &pixels {
+            let srgb = bevy::color::Srgba::from(bevy::color::Color::from(*c));
+            buf.extend_from_slice(&srgb.to_u8_array());
+        }
+        Ok(pyo3::types::PyBytes::new(py, &buf).unbind())
+    }
+
+    /// Writes sRGB bytes (4 per pixel) back to the frame, the reverse of load_pixels_raw.
+    pub fn update_pixels_raw(&self, data: &[u8]) -> PyResult<()> {
+        let px: Vec<_> = data
+            .chunks_exact(4)
+            .map(|q| bevy::color::Color::from(bevy::color::Srgba::rgba_u8(q[0], q[1], q[2], q[3])).into())
+            .collect();
+        graphics_update(self.entity, &px).map_err(|e| PyRuntimeError::new_err(format!("{e}")))
+    }
+
     pub fn poll_for_sketch_update(&self) -> PyResult<Sketch> {
         match poll_for_sketch_updates().map_err(|_| PyRuntimeError::new_err("SKETCH UPDATE ERR"))? {
             Some(sketch) => Ok(Sketch {
