@@ -2818,6 +2818,23 @@ pub extern "C" fn processing_geometry_sphere(radius: f32, sectors: u32, stacks: 
         .unwrap_or(0)
 }
 
+/// A shape vertex with z and texture coordinates (3D and textured shapes).
+#[unsafe(no_mangle)]
+pub extern "C" fn processing_vertex_full(graphics_id: u64, x: f32, y: f32, z: f32, u: f32, v: f32, has_uv: bool) {
+    error::clear_error();
+    let graphics_entity = Entity::from_bits(graphics_id);
+    error::check(|| {
+        graphics_record_command(graphics_entity, DrawCommand::ShapeVertexFull { x, y, z, u, v, has_uv })
+    });
+}
+
+/// An off-center perspective projection (Processing frustum()).
+#[unsafe(no_mangle)]
+pub extern "C" fn processing_frustum(graphics_id: u64, left: f32, right: f32, bottom: f32, top: f32, near: f32, far: f32) {
+    error::clear_error();
+    error::check(|| graphics_frustum(Entity::from_bits(graphics_id), left, right, bottom, top, near, far));
+}
+
 /// Set the ambient light for a graphics context: an even base light on every lit surface.
 #[unsafe(no_mangle)]
 pub extern "C" fn processing_light_set_ambient(graphics_id: u64, color: Color, brightness: f32) {
