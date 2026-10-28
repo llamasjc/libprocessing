@@ -961,6 +961,33 @@ pub fn flush_draw_commands(
                                 *blend_state,
                             )
                         }
+                        // cppmode-geomfill: box()/sphere() meshes have no vertex colors, so the
+                        // fill has to live in the material or they draw white
+                        MaterialKey::Color { transparent, .. } => {
+                            let fill_color = state.style.fill.color().unwrap_or(Color::WHITE);
+                            let base = StandardMaterial {
+                                base_color: fill_color,
+                                unlit: true,
+                                cull_mode: None,
+                                alpha_mode: if state.style.blend_state.is_some() || *transparent {
+                                    AlphaMode::Blend
+                                } else {
+                                    AlphaMode::Opaque
+                                },
+                                ..default()
+                            };
+                            res.materials
+                                .add(ProcessingExtendedMaterial {
+                                    base,
+                                    extension: ProcessingMaterial {
+                                        blend_state: state.style.blend_state,
+                                        depth_write: None,
+                                        depth_test: None,
+                                        clip_rect: crate::render::material::clip_vec(state.style.clip_rect),
+                                    },
+                                })
+                                .untyped()
+                        }
                         _ => material_key.to_material(&mut res.materials),
                     };
 
