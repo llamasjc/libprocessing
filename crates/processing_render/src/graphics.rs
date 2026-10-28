@@ -385,12 +385,12 @@ pub fn mode_3d(
         .get_mut(entity)
         .map_err(|_| ProcessingError::GraphicsNotFound)?;
 
-    // Processing's y-down perspective: a symmetric frustum with top and bottom
-    // swapped, so +y goes down the screen like Java's P3D (Bevy's is y-up).
-    let half_h = near * (fov * 0.5).tan();
-    let half_w = half_h * aspect;
-    *projection = Projection::custom(FrustumProjection {
-        left: -half_w, right: half_w, bottom: half_h, top: -half_h, near, far,
+    *projection = Projection::Perspective(PerspectiveProjection {
+        fov,
+        aspect_ratio: aspect,
+        near,
+        far,
+        near_clip_plane,
     });
 
     let mut transform = transforms
@@ -444,12 +444,12 @@ pub fn perspective(
         .get_mut(entity)
         .map_err(|_| ProcessingError::GraphicsNotFound)?;
 
-    // Processing's y-down perspective: a symmetric frustum with top and bottom
-    // swapped, so +y goes down the screen like Java's P3D (Bevy's is y-up).
-    let half_h = near * (fov * 0.5).tan();
-    let half_w = half_h * aspect_ratio;
-    *projection = Projection::custom(FrustumProjection {
-        left: -half_w, right: half_w, bottom: half_h, top: -half_h, near, far,
+    *projection = Projection::Perspective(PerspectiveProjection {
+        fov,
+        aspect_ratio,
+        near,
+        far,
+        near_clip_plane,
     });
 
     Ok(())
