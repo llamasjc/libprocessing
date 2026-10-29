@@ -4667,3 +4667,20 @@ pub extern "C" fn processing_depth_test(graphics_id: u64, on: bool) {
     error::clear_error();
     error::check(|| graphics_record_command(Entity::from_bits(graphics_id), DrawCommand::DepthTest(on)));
 }
+
+/// Use an image as the texture for the shapes that follow, like Processing's texture().
+/// Texture coordinates come from processing_vertex_full (u, v in 0..1).
+#[unsafe(no_mangle)]
+pub extern "C" fn processing_texture(graphics_id: u64, image_id: u64) {
+    error::clear_error();
+    let graphics_entity = Entity::from_bits(graphics_id);
+    error::check(|| graphics_record_command(graphics_entity, DrawCommand::Texture(Entity::from_bits(image_id))));
+}
+
+/// Stop texturing shapes, like Processing's noTexture().
+#[unsafe(no_mangle)]
+pub extern "C" fn processing_no_texture(graphics_id: u64) {
+    error::clear_error();
+    let graphics_entity = Entity::from_bits(graphics_id);
+    error::check(|| graphics_record_command(graphics_entity, DrawCommand::NoTexture));
+}
