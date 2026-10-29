@@ -569,6 +569,13 @@ pub fn graphics_apply_filter(graphics_entity: Entity, filter_entity: Entity) -> 
     app_mut(|app| graphics::apply_filter(app, graphics_entity, filter_entity))
 }
 
+/// Apply a filter to what the canvas holds after the last update, without
+/// an update first (see `render::filter::apply_now`). Saves a whole engine
+/// update when the filter has run once already and nothing new was drawn.
+pub fn graphics_apply_filter_now(graphics_entity: Entity, filter_entity: Entity) -> error::Result<()> {
+    app_mut(|app| render::filter::apply_now(app, graphics_entity, filter_entity))
+}
+
 pub fn filter_create(shader_entity: Entity) -> error::Result<Entity> {
     app_mut(|app| render::filter::create(app, shader_entity))
 }
