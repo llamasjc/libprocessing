@@ -144,6 +144,15 @@ pub fn set_passes(
 }
 
 pub fn apply(app: &mut App, graphics: Entity, filter: Entity) -> Result<()> {
+    // flush() also extracts the shader asset to the render world.
+    crate::graphics::flush(app, graphics)?;
+    apply_now(app, graphics, filter)
+}
+
+/// Runs the filter on what the target holds after the last update, without
+/// an update of its own: for a filter whose shader was already used (so its
+/// asset is in the render world) on a target with nothing left to draw.
+pub fn apply_now(app: &mut App, graphics: Entity, filter: Entity) -> Result<()> {
     let (shader, handle, entry, layouts, passes) = {
         let f = app
             .world()
@@ -158,8 +167,6 @@ pub fn apply(app: &mut App, graphics: Entity, filter: Entity) -> Result<()> {
         )
     };
 
-    // flush() also extracts the shader asset to the render world.
-    crate::graphics::flush(app, graphics)?;
 
     // The pipeline must target the view target's actual texture format, which
     // bevy may transform from the requested format (HDR, sRGB compositing).
