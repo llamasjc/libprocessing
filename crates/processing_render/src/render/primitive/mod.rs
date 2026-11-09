@@ -82,6 +82,42 @@ impl StrokeJoinMode {
     }
 }
 
+/// How many straight pieces keep a circle of radius r within lyon's default
+/// tolerance (0.1) of the true curve.
+pub(crate) fn segments(r: f32) -> usize {
+    let r = r.max(0.5);
+    let step = 2.0 * (1.0 - (0.1 / r).min(1.0)).acos();
+    ((std::f32::consts::TAU / step).ceil() as usize).clamp(8, 512)
+}
+
+/// Appends flat 2D triangles (indices count from the first of `pos`) in one
+/// go per attribute; false if the mesh isn't one of ours.
+pub(crate) fn push_flat(mesh: &mut Mesh, pos: &[[f32; 3]], idx: &[u32], color: Color) -> bool {
+    use bevy::mesh::{Indices, VertexAttributeValues};
+    let base = match mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
+        Some(VertexAttributeValues::Float32x3(p)) => p.len() as u32,
+        _ => return false,
+    };
+    let count = pos.len();
+    let rgba = color.to_linear().to_f32_array();
+    if let Some(VertexAttributeValues::Float32x3(p)) = mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION) {
+        p.extend_from_slice(pos);
+    }
+    if let Some(VertexAttributeValues::Float32x4(c)) = mesh.attribute_mut(Mesh::ATTRIBUTE_COLOR) {
+        c.extend(std::iter::repeat_n(rgba, count));
+    }
+    if let Some(VertexAttributeValues::Float32x3(n)) = mesh.attribute_mut(Mesh::ATTRIBUTE_NORMAL) {
+        n.extend(std::iter::repeat_n([0.0, 0.0, 1.0], count));
+    }
+    if let Some(VertexAttributeValues::Float32x2(u)) = mesh.attribute_mut(Mesh::ATTRIBUTE_UV_0) {
+        u.extend(std::iter::repeat_n([0.0, 0.0], count));
+    }
+    if let Some(Indices::U32(i)) = mesh.indices_mut() {
+        i.extend(idx.iter().map(|k| k + base));
+    }
+    true
+}
+
 pub fn tessellate_path(
     mesh: &mut Mesh,
     path: &Path,

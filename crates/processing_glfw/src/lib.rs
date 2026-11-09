@@ -23,6 +23,10 @@ fn is_wayland(glfw: &Glfw) -> bool {
 
 /// A single GLFW instance drives every window (GLFW's event pump is global). The
 /// main window is `windows[0]`; `create_window` appends more.
+/// Set when the monitors change (and at the start), so poll_events() reads
+/// them again.
+static MONITORS_CHANGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+
 pub struct GlfwContext {
     glfw: Glfw,
     windows: Vec<ManagedWindow>,
@@ -71,6 +75,9 @@ impl Default for AppliedWindow {
 impl GlfwContext {
     pub fn new(width: u32, height: u32, transparent: bool) -> Result<Self> {
         let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
+        // monitors are read again only when one is plugged in or out: reading
+        // them is several X server round trips, too slow for every frame
+        glfw.set_monitor_callback(|_, _| MONITORS_CHANGED.store(true, std::sync::atomic::Ordering::Relaxed));
         let main = Self::spawn_window(&mut glfw, width, height, transparent, "Processing");
         Ok(Self {
             glfw,
@@ -325,7 +332,9 @@ impl GlfwContext {
 
     pub fn poll_events(&mut self) -> bool {
         self.glfw.poll_events();
-        self.sync_monitors();
+        if MONITORS_CHANGED.swap(false, std::sync::atomic::Ordering::Relaxed) {
+            self.sync_monitors();
+        }
 
         // GLFW's pump is global; flush + sync each window on the shared instance.
         // A closed secondary window is dropped; a closed main window ends the loop.
