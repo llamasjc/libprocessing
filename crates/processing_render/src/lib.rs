@@ -667,7 +667,16 @@ pub fn graphics_destroy(graphics_entity: Entity) -> error::Result<()> {
 /// Read back raw pixel data from the graphics surface.
 pub fn graphics_readback_raw(graphics_entity: Entity) -> error::Result<graphics::ReadbackData> {
     app_mut(|app| {
-        graphics::flush(app, graphics_entity)?;
+        // readback: skip the flush (a whole engine update) when nothing is queued;
+        // the texture already holds the last rendered frame.
+        let pending = app
+            .world()
+            .get::<crate::render::command::CommandBuffer>(graphics_entity)
+            .map(|b| !b.commands.is_empty())
+            .unwrap_or(true);
+        if pending {
+            graphics::flush(app, graphics_entity)?;
+        }
         let vt = graphics::view_target(app, graphics_entity)?;
         let texture = vt.main_texture().clone();
         app.world_mut()
