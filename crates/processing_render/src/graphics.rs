@@ -648,6 +648,7 @@ pub fn screen_point(
 }
 
 pub fn flush(app: &mut App, entity: Entity) -> Result<()> {
+    drain_advance_readback(app, entity);
     graphics_mut!(app, entity).insert(Flush);
     app.update();
     graphics_mut!(app, entity).remove::<Flush>();
@@ -792,6 +793,149 @@ pub fn readback_raw(
         width: graphics.size.width,
         height: graphics.size.height,
     })
+}
+
+/// Advance readbacks: after a frame ends, its texture is copied into the readback
+/// buffer without waiting, so the next readback (with nothing drawn since) only
+/// collects the bytes instead of waiting for the whole GPU queue.
+#[derive(bevy::prelude::Resource, Default)]
+pub struct AdvanceReadbacks {
+    pub enabled: std::collections::HashSet<Entity>,
+    pub inflight: std::collections::HashMap<Entity, crossbeam_channel::Receiver<()>>,
+}
+
+pub fn readback_start(
+    In((entity, texture)): In<(Entity, Texture)>,
+    graphics_query: Query<&Graphics>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    mut adv: bevy::prelude::ResMut<AdvanceReadbacks>,
+) -> Result<()> {
+    if adv.inflight.contains_key(&entity) {
+        return Ok(());
+    }
+    let graphics = graphics_query
+        .get(entity)
+        .map_err(|_| ProcessingError::GraphicsNotFound)?;
+    let mut encoder = render_device.create_command_encoder(&CommandEncoderDescriptor::default());
+    let px_size = pixel_size(graphics.texture_format)?;
+    let padded_bytes_per_row =
+        RenderDevice::align_copy_bytes_per_row(graphics.size.width as usize * px_size);
+    encoder.copy_texture_to_buffer(
+        texture.as_image_copy(),
+        TexelCopyBufferInfo {
+            buffer: &graphics.readback_buffer,
+            layout: TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(
+                    std::num::NonZero::<u32>::new(padded_bytes_per_row as u32)
+                        .unwrap()
+                        .into(),
+                ),
+                rows_per_image: None,
+            },
+        },
+        graphics.size,
+    );
+    render_queue.submit(std::iter::once(encoder.finish()));
+    let (s, r) = crossbeam_channel::bounded(1);
+    graphics.readback_buffer.slice(..).map_async(MapMode::Read, move |res| match res {
+        Ok(v) => {
+            let _ = s.send(v);
+        }
+        Err(err) => panic!("Failed to map buffer {err}"),
+    });
+    adv.inflight.insert(entity, r);
+    Ok(())
+}
+
+pub fn readback_finish(
+    In(entity): In<Entity>,
+    graphics_query: Query<&Graphics>,
+    render_device: Res<RenderDevice>,
+    mut adv: bevy::prelude::ResMut<AdvanceReadbacks>,
+) -> Result<ReadbackData> {
+    let r = adv
+        .inflight
+        .remove(&entity)
+        .ok_or(ProcessingError::GraphicsNotFound)?;
+    let graphics = graphics_query
+        .get(entity)
+        .map_err(|_| ProcessingError::GraphicsNotFound)?;
+    let px_size = pixel_size(graphics.texture_format)?;
+    let padded_bytes_per_row =
+        RenderDevice::align_copy_bytes_per_row(graphics.size.width as usize * px_size);
+    let _ = render_device.poll(PollType::Poll);
+    if r.try_recv().is_err() {
+        render_device
+            .poll(PollType::wait_indefinitely())
+            .expect("Failed to poll device for map async");
+        r.recv().expect("Failed to receive the map_async message");
+    }
+    let buffer_slice = graphics.readback_buffer.slice(..);
+    let data = buffer_slice.get_mapped_range().to_vec();
+    graphics.readback_buffer.unmap();
+    let bytes_per_row = graphics.size.width as usize * px_size;
+    let unpadded = if padded_bytes_per_row != bytes_per_row {
+        data.chunks_exact(padded_bytes_per_row)
+            .take(graphics.size.height as usize)
+            .flat_map(|row| &row[..bytes_per_row])
+            .copied()
+            .collect()
+    } else {
+        data
+    };
+    Ok(ReadbackData {
+        bytes: unpadded,
+        format: graphics.texture_format,
+        width: graphics.size.width,
+        height: graphics.size.height,
+    })
+}
+
+fn advance_inflight(app: &App, entity: Entity) -> bool {
+    app.world()
+        .get_resource::<AdvanceReadbacks>()
+        .is_some_and(|a| a.inflight.contains_key(&entity))
+}
+
+/// Finish and discard a pending advance copy (the texture is about to change, and the buffer is needed).
+pub fn drain_advance_readback(app: &mut App, entity: Entity) {
+    if advance_inflight(app, entity) {
+        let _ = app.world_mut().run_system_cached_with(readback_finish, entity);
+    }
+}
+
+/// Mark a graphics as read back, so its frames get advance copies from now on.
+pub fn note_readback(app: &mut App, entity: Entity) {
+    if !app.world().contains_resource::<AdvanceReadbacks>() {
+        app.world_mut().init_resource::<AdvanceReadbacks>();
+    }
+    app.world_mut().resource_mut::<AdvanceReadbacks>().enabled.insert(entity);
+}
+
+/// Take the advance copy for a graphics, if one is pending.
+pub fn take_advance_readback(app: &mut App, entity: Entity) -> Option<Result<ReadbackData>> {
+    if !advance_inflight(app, entity) {
+        return None;
+    }
+    Some(app.world_mut().run_system_cached_with(readback_finish, entity).unwrap())
+}
+
+/// After a frame ends: start an advance copy for graphics that have been read back before.
+pub fn advance_readback(app: &mut App, entity: Entity) -> Result<()> {
+    let enabled = app
+        .world()
+        .get_resource::<AdvanceReadbacks>()
+        .is_some_and(|a| a.enabled.contains(&entity));
+    if !enabled {
+        return Ok(());
+    }
+    let vt = view_target(app, entity)?;
+    let texture = vt.main_texture().clone();
+    app.world_mut()
+        .run_system_cached_with(readback_start, (entity, texture))
+        .unwrap()
 }
 
 pub fn update_region_write(
