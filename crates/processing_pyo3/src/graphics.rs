@@ -1146,6 +1146,21 @@ impl Graphics {
             .map_err(|e| PyRuntimeError::new_err(format!("{e}")))
     }
 
+    /// Like `filter`, but on what the graphics holds after the last engine
+    /// update, without an update of its own. For a filter that has run once
+    /// already, on a graphics with nothing new drawn since.
+    #[pyo3(signature = (kind, *args, **kwargs))]
+    pub fn filter_now(
+        &self,
+        kind: Bound<'_, PyAny>,
+        args: &Bound<'_, PyTuple>,
+        kwargs: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<()> {
+        let filter = crate::filter::resolve_filter(&kind, args, kwargs)?;
+        graphics_apply_filter_now(self.entity, filter)
+            .map_err(|e| PyRuntimeError::new_err(format!("{e}")))
+    }
+
     #[pyo3(signature = (*args))]
     pub fn color(&self, args: &Bound<'_, PyTuple>) -> PyResult<crate::color::PyColor> {
         extract_color_with_mode(
