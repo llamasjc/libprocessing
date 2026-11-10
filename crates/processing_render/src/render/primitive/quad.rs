@@ -33,6 +33,11 @@ pub fn quad(
     if matches!(mode, TessellationMode::Fill) {
         simple_quad(mesh, x1, y1, x2, y2, x3, y3, x4, y4, color);
     } else {
+        if let TessellationMode::Stroke(weight) = mode {
+            if true && super::fast_closed_stroke(mesh, &[(x1, y1), (x2, y2), (x3, y3), (x4, y4)], color, weight, stroke_config) {
+                return;
+            }
+        }
         let path = quad_path(x1, y1, x2, y2, x3, y3, x4, y4);
         tessellate_path(mesh, &path, color, mode, stroke_config);
     }

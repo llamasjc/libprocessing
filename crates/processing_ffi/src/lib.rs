@@ -3048,6 +3048,17 @@ pub extern "C" fn processing_graphics_apply_filter(graphics_id: u64, filter_id: 
     });
 }
 
+/// Apply a filter to what the graphics holds after the last update, without
+/// an engine update first. For showing a finished frame (the filter's shader
+/// must have run once, through `processing_graphics_apply_filter`).
+#[unsafe(no_mangle)]
+pub extern "C" fn processing_graphics_apply_filter_now(graphics_id: u64, filter_id: u64) {
+    error::clear_error();
+    error::check(|| {
+        graphics_apply_filter_now(Entity::from_bits(graphics_id), Entity::from_bits(filter_id))
+    });
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn processing_filter_create(shader_id: u64) -> u64 {
     error::clear_error();

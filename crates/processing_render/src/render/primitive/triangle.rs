@@ -30,6 +30,11 @@ pub fn triangle(
     if matches!(mode, TessellationMode::Fill) {
         simple_triangle(mesh, x1, y1, x2, y2, x3, y3, color);
     } else {
+        if let TessellationMode::Stroke(weight) = mode {
+            if true && super::fast_closed_stroke(mesh, &[(x1, y1), (x2, y2), (x3, y3)], color, weight, stroke_config) {
+                return;
+            }
+        }
         let path = triangle_path(x1, y1, x2, y2, x3, y3);
         tessellate_path(mesh, &path, color, mode, stroke_config);
     }

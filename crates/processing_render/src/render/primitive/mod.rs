@@ -118,6 +118,89 @@ pub(crate) fn push_flat(mesh: &mut Mesh, pos: &[[f32; 3]], idx: &[u32], color: C
     true
 }
 
+/// The outline of a convex polygon (rect, triangle, quad) with MITER joins,
+/// as a ring of quads written straight into the mesh: each corner's outer and
+/// inner points are where the offset edges meet. false (and nothing written)
+/// for the cases left to lyon: other joins, concave or degenerate shapes, a
+/// corner sharper than lyon's miter limit, or a weight that swallows the
+/// inside.
+pub(crate) fn fast_closed_stroke(
+    mesh: &mut Mesh,
+    pts: &[(f32, f32)],
+    color: Color,
+    weight: f32,
+    stroke_config: &StrokeConfig,
+) -> bool {
+    use crate::render::command::StrokeJoinMode;
+    let n = pts.len();
+    if n < 3 || !matches!(stroke_config.line_join, StrokeJoinMode::Miter) {
+        return false;
+    }
+    if !(weight > 0.0) || !weight.is_finite() || pts.iter().any(|p| !p.0.is_finite() || !p.1.is_finite()) {
+        return false;
+    }
+    let half = weight / 2.0;
+    // which way round the points go, and that every corner turns that way
+    let mut area = 0.0;
+    for i in 0..n {
+        let (a, b) = (pts[i], pts[(i + 1) % n]);
+        area += a.0 * b.1 - b.0 * a.1;
+    }
+    if area.abs() < 1e-6 {
+        return false;
+    }
+    let s = area.signum();
+    let mut normals = Vec::with_capacity(n);
+    for i in 0..n {
+        let (a, b, c) = (pts[i], pts[(i + 1) % n], pts[(i + 2) % n]);
+        let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+        let len = (dx * dx + dy * dy).sqrt();
+        if !(len > 1e-6) {
+            return false;
+        }
+        let turn = dx * (c.1 - b.1) - dy * (c.0 - b.0);
+        if turn * s < 0.0 {
+            return false;
+        }
+        normals.push((s * dy / len, -s * dx / len));
+    }
+    let mut pos = Vec::with_capacity(2 * n);
+    for i in 0..n {
+        let (n0, n1) = (normals[(i + n - 1) % n], normals[i]);
+        let (mx, my) = (n0.0 + n1.0, n0.1 + n1.1);
+        let ml = (mx * mx + my * my).sqrt();
+        if !(ml > 1e-6) {
+            return false;
+        }
+        let (mx, my) = (mx / ml, my / ml);
+        let cos = mx * n1.0 + my * n1.1;
+        // lyon's default miter limit is 4: sharper corners get a bevel there
+        if !(cos > 0.25) {
+            return false;
+        }
+        let (vx, vy) = (mx * half / cos, my * half / cos);
+        let p = pts[i];
+        pos.push([p.0 + vx, p.1 + vy, 0.0]);
+        pos.push([p.0 - vx, p.1 - vy, 0.0]);
+    }
+    // the inner outline must still run the same way as the shape
+    for i in 0..n {
+        let j = (i + 1) % n;
+        let (a, b) = (pts[i], pts[j]);
+        let (ia, ib) = (pos[2 * i + 1], pos[2 * j + 1]);
+        if (ib[0] - ia[0]) * (b.0 - a.0) + (ib[1] - ia[1]) * (b.1 - a.1) <= 0.0 {
+            return false;
+        }
+    }
+    let mut idx = Vec::with_capacity(6 * n);
+    for i in 0..n as u32 {
+        let j = (i + 1) % n as u32;
+        let (a, b, c, d) = (2 * i, 2 * i + 1, 2 * j, 2 * j + 1);
+        idx.extend_from_slice(&[a, b, c, b, d, c]);
+    }
+    push_flat(mesh, &pos, &idx, color)
+}
+
 pub fn tessellate_path(
     mesh: &mut Mesh,
     path: &Path,
