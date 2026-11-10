@@ -68,6 +68,11 @@ struct BatchState {
     render_layers: RenderLayers,
     graphics_entity: Entity,
     clip_rect: Option<[f32; 4]>,
+    /// Which way along z each later batch moves so that it ends up in front:
+    /// -1 for libprocessing's own cameras, +1 for a camera that looks the
+    /// other way (a mode's own perspective, say). Without it a shape drawn
+    /// later in another batch hides behind one drawn earlier.
+    z_dir: f32,
 }
 
 impl BatchState {
@@ -80,6 +85,7 @@ impl BatchState {
             render_layers,
             graphics_entity,
             clip_rect: None,
+            z_dir: -1.0,
         }
     }
 }
@@ -179,6 +185,15 @@ pub fn flush_draw_commands(
         let world_from_clip = (clip_from_view * view_from_world).inverse();
         let draw_commands = std::mem::take(&mut cmd_buffer.commands);
         let mut batch = BatchState::new(graphics_entity, render_layers.clone());
+        // nearer is a larger depth here (reverse z): later batches go the way
+        // that makes them nearer for this camera
+        let depth_at = |z: f32| {
+            let c = clip_from_view * view_from_world * Vec4::new(0.0, 0.0, z, 1.0);
+            if c.w.abs() > f32::EPSILON { c.z / c.w } else { c.z }
+        };
+        if depth_at(BATCH_INDEX_STEP) > depth_at(-BATCH_INDEX_STEP) {
+            batch.z_dir = 1.0;
+        }
 
         for cmd in draw_commands {
             match cmd {
@@ -993,7 +1008,7 @@ pub fn flush_draw_commands(
 
                     flush_batch(&mut res, &mut batch, &p_material_handles);
 
-                    let z_offset = -(batch.draw_index as f32 * BATCH_INDEX_STEP);
+                    let z_offset = batch.z_dir * (batch.draw_index as f32 * BATCH_INDEX_STEP);
                     let mut transform = state.transform.to_bevy_transform();
 
                     // if the "source" geometry was parented in a gltf scene, we need to make sure that
@@ -1681,7 +1696,7 @@ fn flush_batch(
     material_handles: &Query<&UntypedMaterial>,
 ) {
     if let Some(mesh) = batch.current_mesh.take() {
-        let z_offset = -(batch.draw_index as f32 * BATCH_INDEX_STEP);
+        let z_offset = batch.z_dir * (batch.draw_index as f32 * BATCH_INDEX_STEP);
         spawn_mesh(res, batch, mesh, z_offset, material_handles);
         batch.draw_index += 1;
     }
@@ -1747,7 +1762,7 @@ fn add_shape3d(
         }
     };
 
-    let z_offset = -(batch.draw_index as f32 * BATCH_INDEX_STEP);
+    let z_offset = batch.z_dir * (batch.draw_index as f32 * BATCH_INDEX_STEP);
     let mut transform = state.transform.to_bevy_transform();
     transform.translation.z += z_offset;
 
