@@ -61,6 +61,11 @@ pub fn rect(
     if radii == [0.0; 4] && matches!(mode, TessellationMode::Fill) {
         simple_rect(mesh, x, y, w, h, color);
     } else {
+        if let TessellationMode::Stroke(weight) = mode {
+            if radii == [0.0; 4] && super::fast_closed_stroke(mesh, &[(x, y), (x + w, y), (x + w, y + h), (x, y + h)], color, weight, stroke_config) {
+                return;
+            }
+        }
         let path = rect_path(x, y, w, h, radii);
         tessellate_path(mesh, &path, color, mode, stroke_config);
     }
