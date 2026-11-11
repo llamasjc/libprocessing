@@ -561,10 +561,7 @@ pub fn graphics_present(graphics_entity: Entity) -> error::Result<()> {
 
 /// End the current draw pass for the graphics surface.
 pub fn graphics_end_draw(graphics_entity: Entity) -> error::Result<()> {
-    app_mut(|app| {
-        graphics::end_draw(app, graphics_entity)?;
-        graphics::advance_readback(app, graphics_entity)
-    })
+    app_mut(|app| graphics::end_draw(app, graphics_entity))
 }
 
 /// Apply a filter to a graphics canvas.
@@ -677,12 +674,6 @@ pub fn graphics_readback_raw(graphics_entity: Entity) -> error::Result<graphics:
             .get::<crate::render::command::CommandBuffer>(graphics_entity)
             .map(|b| !b.commands.is_empty())
             .unwrap_or(true);
-        graphics::note_readback(app, graphics_entity);
-        if !pending {
-            if let Some(data) = graphics::take_advance_readback(app, graphics_entity) {
-                return data;
-            }
-        }
         if pending {
             graphics::flush(app, graphics_entity)?;
         }
