@@ -29,7 +29,8 @@ fn arc_path(
     let first_point = Point::new(cx + rx * start.cos(), cy + ry * start.sin());
 
     match mode {
-        ArcMode::Pie if for_fill => {
+        // PIE's outline goes through the center too, like its fill
+        ArcMode::Pie => {
             builder.begin(Point::new(cx, cy));
             builder.line_to(first_point);
         }
