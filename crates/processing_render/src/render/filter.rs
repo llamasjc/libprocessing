@@ -195,9 +195,12 @@ pub fn apply_now(app: &mut App, graphics: Entity, filter: Entity) -> Result<()> 
         }
     };
 
-    const MAX_WAIT: u32 = 64;
+    // With async pipeline compilation the shader compiles on a background thread,
+    // so wait by time (up to MAX_WAIT ms), not by a fixed number of instant pumps.
+    const MAX_WAIT: u32 = 5000;
+    let start = std::time::Instant::now();
     let mut ready = false;
-    for _ in 0..MAX_WAIT {
+    while start.elapsed().as_millis() < MAX_WAIT as u128 {
         ready = app
             .sub_app_mut(RenderApp)
             .world_mut()
@@ -206,6 +209,7 @@ pub fn apply_now(app: &mut App, graphics: Entity, filter: Entity) -> Result<()> 
         if ready {
             break;
         }
+        std::thread::sleep(std::time::Duration::from_millis(1));
     }
     if !ready {
         return Err(ProcessingError::PipelineNotReady(MAX_WAIT));
