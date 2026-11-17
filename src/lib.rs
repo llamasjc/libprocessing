@@ -39,7 +39,10 @@ fn create_app(config: Config) -> App {
         // off, filters fail with PipelineNotReady and readback sees an empty
         // canvas on the first frames
         .set(RenderPlugin {
-            synchronous_pipeline_compilation: false,
+            // Synchronous by default: every frame is complete from the first one, as in
+            // Processing. PROCESSING_ASYNC_SHADERS=1 avoids first-use compile pauses, at
+            // the cost of early frames missing whatever isn't compiled yet.
+            synchronous_pipeline_compilation: std::env::var_os("PROCESSING_ASYNC_SHADERS").is_none(),
             ..default()
         })
         .disable::<bevy::winit::WinitPlugin>()
