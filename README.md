@@ -1,5 +1,11 @@
 # libprocessing
 
+> This is Jose Llamas's fork of [processing/libprocessing](https://github.com/processing/libprocessing),
+> with fixes and additions used by CppMode, SchemeMode, LuaMode and RustMode, the Processing modes
+> built on this engine. Changes that make sense for everyone are sent upstream; for general use,
+> start with upstream. The `fork` branch has the changes.
+
+
 > [!WARNING]
 > This project is very much R&D and highly unstable
 
