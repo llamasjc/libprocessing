@@ -1678,8 +1678,18 @@ fn add_stroke(
         return;
     };
     let stroke_weight = state.style.stroke_weight;
-    let material_key =
-        material_key_with_color(&state.style.material_key, color, state.style.blend_state);
+    // strokes are never lit, like Processing's P3D: always the plain color material,
+    // whatever material the fill uses (lights(), a custom material)
+    let material_key = material_key_with_color(
+        &MaterialKey::Color {
+            transparent: false,
+            background_image: None,
+            uv_transform: bevy::math::Affine2::IDENTITY,
+            blend_state: None,
+        },
+        color,
+        state.style.blend_state,
+    );
 
     if needs_batch(batch, state, &material_key) {
         start_batch(res, batch, state, material_key, material_handles);
