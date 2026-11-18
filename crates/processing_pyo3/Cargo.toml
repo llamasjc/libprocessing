@@ -1,6 +1,6 @@
 [package]
 name = "processing_pyo3"
-version = "0.0.8"
+version = "0.0.8+fork"
 edition = "2024"
 
 [lints]
